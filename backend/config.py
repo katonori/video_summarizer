@@ -3,6 +3,7 @@ from pathlib import Path
 
 class Settings(BaseSettings):
     # API キーは不要（Claude Code セッション内で処理）
+    ANTHROPIC_API_KEY: str = ""
     YOUTUBE_API_KEY: str = ""
 
     # ビデオ処理
@@ -22,5 +23,6 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
 settings = Settings()
