@@ -7,9 +7,10 @@ logger = logging.getLogger(__name__)
 
 
 class YouTubeService:
-    def __init__(self, output_dir: Path):
+    def __init__(self, output_dir: Path, cookie_file: Optional[Path] = None):
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.cookie_file = cookie_file
 
     async def download_video(self, url: str, video_id: str) -> Optional[str]:
         """YouTubeビデオをダウンロード"""
@@ -27,6 +28,10 @@ class YouTubeService:
                 "no_warnings": False,
             }
 
+            if self.cookie_file and self.cookie_file.exists():
+                ydl_opts["cookiefile"] = str(self.cookie_file)
+                logger.info(f"Using cookies from: {self.cookie_file}")
+
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 logger.info(f"Downloading: {url}")
                 ydl.download([url])
@@ -41,6 +46,9 @@ class YouTubeService:
         """ビデオ情報を取得"""
         try:
             ydl_opts = {"quiet": True, "no_warnings": True}
+
+            if self.cookie_file and self.cookie_file.exists():
+                ydl_opts["cookiefile"] = str(self.cookie_file)
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)

@@ -69,7 +69,8 @@ async def main():
         print("=" * 60)
 
         # 初期化
-        youtube_service = YouTubeService(settings.PROCESSING_DIR)
+        cookie_file = Path("/root/.claude/uploads/feb07356-2507-5957-8d7b-f8c1bf388e42/e1b9bc2d-cookies.txt")
+        youtube_service = YouTubeService(settings.PROCESSING_DIR, cookie_file=cookie_file if cookie_file.exists() else None)
         transcript_service = TranscriptService()
         video_processor = VideoProcessor(settings.PROCESSING_DIR)
         report_generator = ReportGenerator()
