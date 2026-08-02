@@ -22,10 +22,14 @@ class YouTubeService:
                 return str(output_path)
 
             ydl_opts = {
-                "format": "best[ext=mp4]",
+                "format": "best",
                 "outtmpl": str(self.output_dir / f"{video_id}"),
                 "quiet": False,
                 "no_warnings": False,
+                "postprocessors": [{
+                    "key": "FFmpegVideoConvertor",
+                    "preferedformat": "mp4",
+                }],
             }
 
             if self.cookie_file and self.cookie_file.exists():
