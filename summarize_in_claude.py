@@ -39,11 +39,16 @@ async def main():
 ╚════════════════════════════════════════════════════════════════╝
 
 使用方法:
-  python summarize_in_claude.py <YouTube URL> [--detailed]
+  python summarize_in_claude.py <YouTube URL> [OPTIONS]
 
 例:
   python summarize_in_claude.py "https://www.youtube.com/watch?v=..."
   python summarize_in_claude.py "https://www.youtube.com/watch?v=..." --detailed
+  python summarize_in_claude.py "https://www.youtube.com/watch?v=..." --cookies cookies.txt
+
+オプション:
+  --detailed              詳細レポート付きで生成
+  --cookies <file>        YouTubeアクセス用のクッキーファイル
 
 特徴:
   ✓ Claude が直接処理 (API キー不要)
@@ -63,14 +68,24 @@ async def main():
     url = sys.argv[1]
     detailed_report = "--detailed" in sys.argv
 
+    # クッキーファイルをコマンドラインから取得
+    cookie_file = None
+    if "--cookies" in sys.argv:
+        idx = sys.argv.index("--cookies")
+        if idx + 1 < len(sys.argv):
+            cookie_path = Path(sys.argv[idx + 1])
+            if cookie_path.exists():
+                cookie_file = cookie_path
+            else:
+                print(f"❌ クッキーファイルが見つかりません: {cookie_path}")
+
     try:
         print("\n" + "=" * 60)
         print("🚀 Claude Code 内での処理を開始します")
         print("=" * 60)
 
         # 初期化
-        cookie_file = Path("/root/.claude/uploads/feb07356-2507-5957-8d7b-f8c1bf388e42/e1b9bc2d-cookies.txt")
-        youtube_service = YouTubeService(settings.PROCESSING_DIR, cookie_file=cookie_file if cookie_file.exists() else None)
+        youtube_service = YouTubeService(settings.PROCESSING_DIR, cookie_file=cookie_file)
         transcript_service = TranscriptService()
         video_processor = VideoProcessor(settings.PROCESSING_DIR)
         report_generator = ReportGenerator()
