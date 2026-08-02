@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ class ReportGenerator:
         screenshots: list,
         detailed_report: Optional[str] = None,
     ) -> str:
-        """HTMLレポートを生成"""
+        """HTMLレポートを生成（テキスト + スクリーンショット並行表示）"""
 
         def format_duration(seconds: float) -> str:
             hours = int(seconds // 3600)
@@ -35,29 +35,50 @@ class ReportGenerator:
                 .replace("'", "&#39;")
             )
 
-        screenshots_html = ""
-        if screenshots:
-            screenshots_html = "<div class='screenshots-section'>"
-            screenshots_html += "<h2>ビデオスクリーンショット</h2>"
-            screenshots_html += "<div class='screenshot-grid'>"
-            for i, screenshot in enumerate(screenshots, 1):
-                screenshots_html += f"""
-                <div class='screenshot-item'>
-                    <img src="{screenshot}" alt="Screenshot {i}" />
-                </div>
-                """
-            screenshots_html += "</div></div>"
+        # サマリーを段落ごとに分割
+        summary_blocks = [block.strip() for block in summary.split('\n\n') if block.strip()]
+        summary_html = ""
 
-        detailed_report_html = ""
-        if detailed_report:
-            detailed_report_html = f"""
-            <div class='detailed-report-section'>
-                <h2>詳細レポート</h2>
-                <div class='report-content'>
-                    {escape_html(detailed_report).replace(chr(10), '<br>')}
+        for i, block in enumerate(summary_blocks):
+            screenshot = screenshots[i] if i < len(screenshots) else None
+
+            summary_html += f"""
+            <div class="content-block">
+                <div class="text-section">
+                    <div class="text-content">
+                        {escape_html(block).replace(chr(10), '<br>')}
+                    </div>
                 </div>
+                {f'<div class="image-section"><img src="{screenshot}" alt="Screenshot {i+1}" /></div>' if screenshot else '<div class="image-section empty"></div>'}
             </div>
             """
+
+        # 詳細レポート（オプション）
+        detailed_html = ""
+        if detailed_report:
+            detailed_blocks = [block.strip() for block in detailed_report.split('\n\n') if block.strip()]
+            for i, block in enumerate(detailed_blocks):
+                screenshot_idx = len(summary_blocks) + i
+                screenshot = screenshots[screenshot_idx] if screenshot_idx < len(screenshots) else None
+
+                detailed_html += f"""
+                <div class="content-block">
+                    <div class="text-section">
+                        <div class="text-content">
+                            {escape_html(block).replace(chr(10), '<br>')}
+                        </div>
+                    </div>
+                    {f'<div class="image-section"><img src="{screenshot}" alt="Screenshot" /></div>' if screenshot else '<div class="image-section empty"></div>'}
+                </div>
+                """
+
+            if detailed_html:
+                detailed_html = f"""
+                <div class="section">
+                    <h2>詳細レポート</h2>
+                    {detailed_html}
+                </div>
+                """
 
         current_time = datetime.now().strftime("%Y年%m月%d日 %H:%M:%S")
 
@@ -74,6 +95,10 @@ class ReportGenerator:
             box-sizing: border-box;
         }}
 
+        html, body {{
+            height: 100%;
+        }}
+
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
                 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
@@ -85,7 +110,7 @@ class ReportGenerator:
         }}
 
         .container {{
-            max-width: 900px;
+            max-width: 1200px;
             margin: 0 auto;
             background: white;
             border-radius: 12px;
@@ -96,112 +121,115 @@ class ReportGenerator:
         .header {{
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 40px 30px;
+            padding: 50px 40px;
             text-align: center;
         }}
 
         .header h1 {{
-            font-size: 2.5em;
-            margin-bottom: 10px;
+            font-size: 2.8em;
+            margin-bottom: 15px;
             word-break: break-word;
+            font-weight: 700;
         }}
 
         .header-meta {{
-            font-size: 0.9em;
-            opacity: 0.9;
-            margin-top: 15px;
-        }}
-
-        .header-meta p {{
-            margin: 5px 0;
-        }}
-
-        .content {{
-            padding: 40px 30px;
-        }}
-
-        .section {{
-            margin-bottom: 40px;
-        }}
-
-        .section h2 {{
-            font-size: 1.8em;
-            color: #667eea;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 3px solid #667eea;
-        }}
-
-        .description {{
-            background: #f8f9fa;
-            padding: 20px;
-            border-left: 4px solid #667eea;
-            border-radius: 4px;
-            margin-bottom: 30px;
             font-size: 0.95em;
-            line-height: 1.8;
-        }}
-
-        .summary-content {{
-            background: #f8f9fa;
-            padding: 25px;
-            border-radius: 8px;
-            line-height: 1.8;
-            font-size: 0.95em;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }}
-
-        .screenshots-section {{
-            margin-top: 30px;
-        }}
-
-        .screenshot-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 20px;
+            opacity: 0.95;
             margin-top: 20px;
         }}
 
-        .screenshot-item {{
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        .header-meta p {{
+            margin: 8px 0;
         }}
 
-        .screenshot-item:hover {{
-            transform: translateY(-5px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        .content {{
+            padding: 50px 40px;
         }}
 
-        .screenshot-item img {{
-            width: 100%;
-            height: auto;
-            display: block;
-            background: #e9ecef;
+        .section {{
+            margin-bottom: 60px;
         }}
 
-        .detailed-report-section {{
-            margin-top: 40px;
+        .section:last-child {{
+            margin-bottom: 0;
+        }}
+
+        .section h2 {{
+            font-size: 2em;
+            color: #667eea;
+            margin-bottom: 35px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+            font-weight: 700;
+        }}
+
+        .intro-section {{
             background: #f8f9fa;
-            padding: 25px;
+            padding: 30px;
+            border-left: 5px solid #667eea;
             border-radius: 8px;
+            margin-bottom: 40px;
+            font-size: 0.98em;
+            line-height: 1.9;
         }}
 
-        .report-content {{
-            line-height: 1.8;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-size: 0.95em;
+        .content-block {{
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 40px;
+            margin-bottom: 50px;
+            align-items: start;
+        }}
+
+        .text-section {{
+            flex: 1;
+        }}
+
+        .text-content {{
+            background: #f8f9fa;
+            padding: 30px;
+            border-left: 5px solid #667eea;
+            border-radius: 8px;
+            line-height: 1.9;
+            font-size: 0.97em;
+            color: #444;
+        }}
+
+        .text-content br {{
+            margin: 8px 0;
+        }}
+
+        .image-section {{
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+            background: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 320px;
+            max-height: 420px;
+        }}
+
+        .image-section img {{
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }}
+
+        .image-section.empty {{
+            border: 2px dashed #d0d0d0;
+            color: #999;
+            font-size: 14px;
         }}
 
         .footer {{
             background: #f8f9fa;
-            padding: 20px 30px;
+            padding: 30px 40px;
             text-align: center;
             font-size: 0.85em;
-            color: #666;
+            color: #777;
             border-top: 1px solid #e9ecef;
         }}
 
@@ -209,10 +237,11 @@ class ReportGenerator:
             display: inline-block;
             background: #667eea;
             color: white;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            margin-left: 10px;
+            padding: 8px 16px;
+            border-radius: 24px;
+            font-size: 0.95em;
+            font-weight: 600;
+            margin-left: 12px;
         }}
 
         @media print {{
@@ -226,8 +255,31 @@ class ReportGenerator:
                 border-radius: 0;
             }}
 
-            .screenshot-item {{
-                break-inside: avoid;
+            .content-block {{
+                page-break-inside: avoid;
+            }}
+        }}
+
+        @media (max-width: 1024px) {{
+            .content-block {{
+                grid-template-columns: 1fr;
+                gap: 25px;
+            }}
+
+            .image-section {{
+                min-height: 250px;
+            }}
+
+            .header {{
+                padding: 40px 30px;
+            }}
+
+            .header h1 {{
+                font-size: 2em;
+            }}
+
+            .content {{
+                padding: 35px 25px;
             }}
         }}
 
@@ -237,11 +289,20 @@ class ReportGenerator:
             }}
 
             .content {{
-                padding: 20px;
+                padding: 25px 20px;
             }}
 
-            .screenshot-grid {{
-                grid-template-columns: 1fr;
+            .section h2 {{
+                font-size: 1.5em;
+            }}
+
+            .text-content {{
+                padding: 20px;
+                font-size: 0.95em;
+            }}
+
+            .image-section {{
+                min-height: 200px;
             }}
         }}
     </style>
@@ -252,24 +313,25 @@ class ReportGenerator:
             <h1>{escape_html(title)}</h1>
             <div class="header-meta">
                 <p>動画の長さ: <span class="duration-badge">{format_duration(duration)}</span></p>
-                <p style="margin-top: 10px; font-size: 0.85em;">生成日時: {current_time}</p>
+                <p style="margin-top: 15px; font-size: 0.9em;">生成日時: {current_time}</p>
             </div>
         </div>
 
         <div class="content">
+            <!-- 動画説明 -->
             <div class="section">
-                <h2>動画について</h2>
-                {f'<div class="description">{escape_html(description)}</div>' if description else '<p style="color: #999;">説明はありません</p>'}
+                <h2>概要</h2>
+                {f'<div class="intro-section">{escape_html(description)}</div>' if description else ''}
             </div>
 
+            <!-- サマリー -->
             <div class="section">
                 <h2>サマリー</h2>
-                <div class="summary-content">{escape_html(summary)}</div>
+                {summary_html}
             </div>
 
-            {screenshots_html}
-
-            {detailed_report_html}
+            <!-- 詳細レポート -->
+            {detailed_html}
         </div>
 
         <div class="footer">
