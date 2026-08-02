@@ -12,6 +12,7 @@ from services import (
     TranscriptService,
     SummarizerService,
     ReportGenerator,
+    SmartScreenshot,
 )
 from config import settings
 
@@ -24,6 +25,7 @@ video_processor = VideoProcessor(settings.PROCESSING_DIR)
 transcript_service = TranscriptService()
 summarizer_service = SummarizerService()
 report_generator = ReportGenerator()
+smart_screenshot = SmartScreenshot(settings.PROCESSING_DIR)
 
 
 class SummarizeRequest(BaseModel):
@@ -72,9 +74,15 @@ async def summarize_video(request: SummarizeRequest):
         if not summary:
             raise HTTPException(status_code=400, detail="Failed to summarize")
 
-        # 重要なシーンからスクリーンショット抽出
-        screenshots = await video_processor.extract_key_frames(
-            video_path, num_screenshots=settings.SCREENSHOT_COUNT
+        # トランスクリプト + シーン検出でスクリーンショット抽出
+        segments = await transcript_service.get_transcript_segments(video_path)
+        if segments:
+            segments = await transcript_service.filter_important_segments(segments)
+
+        screenshots = await smart_screenshot.extract_by_transcript(
+            video_path,
+            segments=segments,
+            num_screenshots=settings.SCREENSHOT_COUNT
         )
 
         # 詳細レポート（オプション）
@@ -135,9 +143,15 @@ async def summarize_video_html(request: SummarizeRequest):
         if not summary:
             raise HTTPException(status_code=400, detail="Failed to summarize")
 
-        # 重要なシーンからスクリーンショット抽出
-        screenshots = await video_processor.extract_key_frames(
-            video_path, num_screenshots=settings.SCREENSHOT_COUNT
+        # トランスクリプト + シーン検出でスクリーンショット抽出
+        segments = await transcript_service.get_transcript_segments(video_path)
+        if segments:
+            segments = await transcript_service.filter_important_segments(segments)
+
+        screenshots = await smart_screenshot.extract_by_transcript(
+            video_path,
+            segments=segments,
+            num_screenshots=settings.SCREENSHOT_COUNT
         )
 
         # 詳細レポート（オプション）

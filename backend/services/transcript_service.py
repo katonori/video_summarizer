@@ -31,7 +31,7 @@ class TranscriptService:
             return None
 
     async def get_transcript_segments(self, video_path: str) -> Optional[list]:
-        """セグメント付きトランスクリプトを取得"""
+        """セグメント付きトランスクリプトを取得（時間情報付き）"""
         try:
             if self.model is None:
                 logger.info("Loading Whisper model...")
@@ -49,6 +49,7 @@ class TranscriptService:
                         "start": segment.get("start"),
                         "end": segment.get("end"),
                         "text": segment.get("text"),
+                        "id": segment.get("id"),
                     }
                 )
 
@@ -58,3 +59,19 @@ class TranscriptService:
         except Exception as e:
             logger.error(f"Failed to get transcript segments: {str(e)}")
             return None
+
+    async def filter_important_segments(self, segments: list, min_length: int = 15) -> list:
+        """意味のあるセグメント（十分な長さ）をフィルタリング"""
+        if not segments:
+            return []
+
+        filtered = [
+            seg for seg in segments
+            if len(seg.get("text", "").strip()) >= min_length
+        ]
+
+        logger.info(
+            f"Filtered segments: {len(segments)} → {len(filtered)} "
+            f"(removed short segments)"
+        )
+        return filtered

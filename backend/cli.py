@@ -17,6 +17,7 @@ from services import (
     TranscriptService,
     SummarizerService,
     ReportGenerator,
+    SmartScreenshot,
 )
 from config import settings
 
@@ -70,6 +71,7 @@ async def main():
         transcript_service = TranscriptService()
         summarizer_service = SummarizerService()
         report_generator = ReportGenerator()
+        smart_screenshot = SmartScreenshot(settings.PROCESSING_DIR)
 
         print("\n🎬 YouTube Video Summarizer")
         print("=" * 50)
@@ -107,10 +109,20 @@ async def main():
 
         print("✅ サマリー完了\n")
 
-        # スクリーンショット抽出
-        print(f"⏳ キーフレームを抽出中（{args.screenshots}枚）...\n")
-        screenshots = await video_processor.extract_key_frames(
+        # スクリーンショット抽出（トランスクリプト + シーン検出）
+        print(f"⏳ トランスクリプトベースのキーフレームを抽出中（{args.screenshots}枚）...\n")
+
+        # トランスクリプトセグメント取得
+        segments = await transcript_service.get_transcript_segments(video_path)
+        if segments:
+            # フィルタリング（意味のあるセグメントのみ）
+            segments = await transcript_service.filter_important_segments(segments)
+            print(f"   📝 {len(segments)}個の重要なセグメントを検出\n")
+
+        # Smart Screenshot: トランスクリプト + シーン検出
+        screenshots = await smart_screenshot.extract_by_transcript(
             video_path,
+            segments=segments,
             num_screenshots=args.screenshots
         )
         print(f"✅ {len(screenshots)}枚のスクリーンショット抽出完了\n")
