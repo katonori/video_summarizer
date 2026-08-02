@@ -55,33 +55,50 @@ ANTHROPIC_API_KEY=your_actual_api_key
 
 ## 使用方法
 
-### バックエンド起動
+### 方法1: Claude Code セッション内での実行（推奨）
 
 ```bash
-cd backend
-python app.py
+cd /home/user/video_summarizer
+python summarize_in_claude.py "https://www.youtube.com/watch?v=..."
 ```
 
-サーバーは `http://localhost:8000` で起動します。
-
-### フロントエンド起動
-
-別のターミナルウィンドウで：
+**特徴:**
+- API キー不要
+- Claude Code セッション内で直接処理
+- Claude が自動的にテキスト分析を行う
 
 ```bash
+# 詳細レポート付き
+python summarize_in_claude.py "https://www.youtube.com/watch?v=..." --detailed
+```
+
+### 方法2: CLI コマンド
+
+```bash
+bash summarize.sh "https://www.youtube.com/watch?v=..."
+```
+
+### 方法3: Web UI（オプション）
+
+```bash
+# バックエンド起動
+cd backend
+python app.py
+
+# フロントエンド起動（別ターミナル）
 cd frontend
 npm run dev
 ```
 
-フロントエンドは `http://localhost:3000` で起動します。
+ブラウザで `http://localhost:3000` を開く
 
-### 操作方法
+### 方法4: Python 直接実行
 
-1. ブラウザで `http://localhost:3000` を開く
-2. YouTubeビデオのURLを入力
-3. 必要に応じて「詳細レポートも生成する」をチェック
-4. 「レポートを生成」をクリック
-5. HTMLレポートが新しいタブで開きます
+```bash
+cd backend
+source venv/bin/activate
+python cli.py "https://www.youtube.com/watch?v=..."
+```
 
 ### API の使用例
 

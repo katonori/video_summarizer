@@ -1,16 +1,27 @@
 # YouTube Video Summarizer - Claude Code Configuration
 
-このファイルはClaude Codeプロジェクトの設定です。
+Claude Code セッション内で直接実行するバージョンです。
+**Anthropic API キーは不要です。** Claude が直接処理を行います。
 
 ## 🚀 Claude Code内から直接実行
 
-### スキルとして実行（推奨）
+### 最も簡単な方法（推奨）
 
-```
-/summarize https://www.youtube.com/watch?v=...
+```bash
+python summarize_in_claude.py "https://www.youtube.com/watch?v=..."
 ```
 
-このスキルを使うと、Claude Code内から直接実行できます。
+**特徴:**
+- ✅ API キー不要
+- ✅ Claude Code セッション内で処理
+- ✅ Claude が直接テキスト分析
+- ✅ 高速・プライベート
+
+### 詳細レポート付き
+
+```bash
+python summarize_in_claude.py "https://www.youtube.com/watch?v=..." --detailed
+```
 
 ## 概要
 

@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings
 from pathlib import Path
 
 class Settings(BaseSettings):
-    ANTHROPIC_API_KEY: str = ""
+    # API キーは不要（Claude Code セッション内で処理）
     YOUTUBE_API_KEY: str = ""
 
     # ビデオ処理
@@ -10,7 +10,8 @@ class Settings(BaseSettings):
     SCREENSHOT_COUNT: int = 5
     SCREENSHOT_QUALITY: int = 85
 
-    # サマライズ
+    # サマライズ設定
+    # 注: Claude が直接処理するため、APIキーなし
     SUMMARY_MODEL: str = "claude-3-5-sonnet-20241022"
     SUMMARY_MAX_TOKENS: int = 1000
 
