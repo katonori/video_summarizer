@@ -16,25 +16,6 @@ code {
     monospace;
 }
 
-.markdown-content {
-  @apply prose prose-sm max-w-none;
-}
-
-.screenshot-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1rem;
-  margin: 1rem 0;
-}
-
-.screenshot-item {
-  border-radius: 0.5rem;
-  overflow: hidden;
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
-}
-
-.screenshot-item img {
-  width: 100%;
-  height: auto;
-  display: block;
+html, body, #root {
+  height: 100%;
 }

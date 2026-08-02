@@ -5,6 +5,7 @@ from typing import List
 import base64
 from io import BytesIO
 from PIL import Image
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -14,10 +15,10 @@ class VideoProcessor:
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-    async def extract_screenshots(
+    async def extract_key_frames(
         self, video_path: str, num_screenshots: int = 5
     ) -> List[str]:
-        """ビデオからスクリーンショットを抽出（base64エンコード）"""
+        """重要なシーンを自動検出してスクリーンショット抽出"""
         screenshots = []
 
         try:
@@ -32,12 +33,54 @@ class VideoProcessor:
                 return []
 
             fps = cap.get(cv2.CAP_PROP_FPS)
-            frame_indices = [
-                int((i + 1) * total_frames / (num_screenshots + 1))
-                for i in range(num_screenshots)
-            ]
 
-            for idx, frame_num in enumerate(frame_indices):
+            # フレーム間の色差を計算して重要なシーンを検出
+            scene_scores = []
+            prev_frame = None
+
+            # サンプリング: 毎秒1フレーム程度
+            sample_interval = max(1, int(fps) if fps > 0 else 30)
+
+            frame_idx = 0
+            while frame_idx < total_frames:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+                ret, frame = cap.read()
+
+                if not ret:
+                    frame_idx += sample_interval
+                    continue
+
+                # グレースケール化してフレーム差を計算
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+                if prev_frame is not None:
+                    diff = cv2.absdiff(prev_frame, gray)
+                    score = np.mean(diff)
+                    scene_scores.append((frame_idx, score))
+
+                prev_frame = gray
+                frame_idx += sample_interval
+
+            cap.release()
+
+            # スコアが高いフレーム（シーン変化が大きい）を選択
+            if scene_scores:
+                # スコアの高い順にソート
+                sorted_scenes = sorted(scene_scores, key=lambda x: x[1], reverse=True)
+                # 上位のフレームを選択
+                selected_frames = sorted([frame for frame, _ in sorted_scenes[:num_screenshots]])
+            else:
+                # フォールバック: 均等分割
+                selected_frames = [
+                    int((i + 1) * total_frames / (num_screenshots + 1))
+                    for i in range(num_screenshots)
+                ]
+
+            logger.info(f"Selected key frames at: {selected_frames}")
+
+            # 選定されたフレームを抽出
+            cap = cv2.VideoCapture(video_path)
+            for frame_num in selected_frames:
                 cap.set(cv2.CAP_PROP_POS_FRAMES, frame_num)
                 ret, frame = cap.read()
 
@@ -52,11 +95,11 @@ class VideoProcessor:
                     screenshots.append(f"data:image/jpeg;base64,{img_base64}")
 
             cap.release()
-            logger.info(f"Extracted {len(screenshots)} screenshots")
+            logger.info(f"Extracted {len(screenshots)} key frame screenshots")
             return screenshots
 
         except Exception as e:
-            logger.error(f"Failed to extract screenshots: {str(e)}")
+            logger.error(f"Failed to extract key frames: {str(e)}")
             return []
 
     async def get_video_duration(self, video_path: str) -> float:
