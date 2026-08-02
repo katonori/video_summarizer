@@ -2,6 +2,16 @@
 
 このファイルはClaude Codeプロジェクトの設定です。
 
+## 🚀 Claude Code内から直接実行
+
+### スキルとして実行（推奨）
+
+```
+/summarize https://www.youtube.com/watch?v=...
+```
+
+このスキルを使うと、Claude Code内から直接実行できます。
+
 ## 概要
 
 YouTubeビデオをAIで自動サマライズし、HTML報告書を生成するツール。
