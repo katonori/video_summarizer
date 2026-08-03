@@ -2,6 +2,7 @@ import yt_dlp
 from pathlib import Path
 from typing import Optional, Dict, Any
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,7 @@ class YouTubeService:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 return {
+                    "id": info.get("id"),
                     "title": info.get("title"),
                     "description": info.get("description"),
                     "duration": info.get("duration"),
@@ -73,3 +75,9 @@ class YouTubeService:
         except Exception as e:
             logger.error(f"Failed to get video info: {str(e)}")
             return None
+
+    @staticmethod
+    def extract_video_id(url: str) -> Optional[str]:
+        """URLからYouTubeビデオIDを抽出"""
+        match = re.search(r"(?:v=|/shorts/|youtu\.be/)([A-Za-z0-9_-]{11})", url)
+        return match.group(1) if match else None

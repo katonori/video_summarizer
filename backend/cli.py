@@ -87,7 +87,8 @@ async def main():
 
         # ビデオダウンロード
         print("⏳ ビデオをダウンロード中...\n")
-        video_path = await youtube_service.download_video(args.url, "temp_video")
+        video_id = video_info.get("id") or youtube_service.extract_video_id(args.url) or "temp_video"
+        video_path = await youtube_service.download_video(args.url, video_id)
         if not video_path:
             raise Exception("ビデオのダウンロードに失敗しました")
 

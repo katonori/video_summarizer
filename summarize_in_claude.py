@@ -100,7 +100,8 @@ async def main():
         print(f"  ✅ 長さ: {int(video_info['duration'])}秒")
 
         print("\n⬇️  ステップ 2: ビデオをダウンロード")
-        video_path = await youtube_service.download_video(url, "claude_video")
+        video_id = video_info.get("id") or youtube_service.extract_video_id(url) or "claude_video"
+        video_path = await youtube_service.download_video(url, video_id)
         if not video_path:
             raise Exception("ビデオのダウンロードに失敗しました")
         print(f"  ✅ ダウンロード完了: {video_path}")
