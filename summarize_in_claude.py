@@ -2,10 +2,9 @@
 """
 Claude Code セッション内での実行用スクリプト
 
-このスクリプトは Claude Code セッション内で実行され、
-Claude が直接サマリー処理を行います。
-
 外部 API (Anthropic API) へのアクセスは不要です。
+トピック（動画のチャプター、なければ自動区切り）ごとに
+トランスクリプトから要約とスクリーンショットを生成します。
 """
 
 import asyncio
@@ -20,7 +19,7 @@ from services.youtube_service import YouTubeService
 from services.transcript_service import TranscriptService
 from services.video_processor import VideoProcessor
 from services.report_generator import ReportGenerator
-from services.claude_summarizer import ClaudeSummarizer
+from services.topic_summarizer import summarize_by_topic
 from config import settings
 
 # ロギング設定
@@ -43,30 +42,27 @@ async def main():
 
 例:
   python summarize_in_claude.py "https://www.youtube.com/watch?v=..."
-  python summarize_in_claude.py "https://www.youtube.com/watch?v=..." --detailed
   python summarize_in_claude.py "https://www.youtube.com/watch?v=..." --cookies cookies.txt
 
 オプション:
-  --detailed              詳細レポート付きで生成
   --cookies <file>        YouTubeアクセス用のクッキーファイル
 
 特徴:
-  ✓ Claude が直接処理 (API キー不要)
-  ✓ Claude Code セッション内で実行
+  ✓ API キー不要（ローカル処理のみ）
+  ✓ トピックごとに要約とスクリーンショットを生成
   ✓ ビデオダウンロード＆トランスクリプト＆サマリーを一度に実行
 
 処理フロー:
   1. YouTubeビデオのメタデータ取得
   2. ビデオファイルをダウンロード
   3. Whisper でトランスクリプト生成
-  4. 👈 Claude がサマリー処理を行う (API キー不要)
-  5. スクリーンショット抽出
+  4. トピック（チャプター）ごとに区切って要約
+  5. トピックごとにスクリーンショットを抽出
   6. HTML レポート生成
 """)
         sys.exit(1)
 
     url = sys.argv[1]
-    detailed_report = "--detailed" in sys.argv
 
     # クッキーファイルをコマンドラインから取得
     cookie_file = None
@@ -81,7 +77,7 @@ async def main():
 
     try:
         print("\n" + "=" * 60)
-        print("🚀 Claude Code 内での処理を開始します")
+        print("🚀 処理を開始します")
         print("=" * 60)
 
         # 初期化
@@ -89,7 +85,6 @@ async def main():
         transcript_service = TranscriptService()
         video_processor = VideoProcessor(settings.PROCESSING_DIR)
         report_generator = ReportGenerator()
-        claude_summarizer = ClaudeSummarizer()  # API キー不要
 
         print("\n📡 ステップ 1: ビデオ情報を取得")
         video_info = await youtube_service.get_video_info(url)
@@ -107,74 +102,35 @@ async def main():
         print(f"  ✅ ダウンロード完了: {video_path}")
 
         print("\n🗣️  ステップ 3: トランスクリプトを生成 (Whisper)")
-        transcript = await transcript_service.get_transcript(video_path)
-        if not transcript:
-            raise Exception("トランスクリプトの生成に失敗しました")
-        print(f"  ✅ トランスクリプト完了: {len(transcript)}文字")
-
-        print("\n" + "=" * 60)
-        print("👉 ステップ 4: Claude によるサマリー処理")
-        print("=" * 60)
-        print("""
-このステップから、Claude Code セッション内で Claude が
-直接テキスト処理を行います。
-
-【プロンプト】
-以下のYouTubeビデオのトランスクリプトを、分かりやすく
-日本語で要約してください。
-
-【要約のポイント】
-✓ 主なトピックを箇条書きで記載
-✓ 重要な発見や結論をハイライト
-✓ わかりやすく、簡潔に
-✓ 適切なセクションに分ける
-
-【トランスクリプト】
-""")
-        print(transcript[:500] + "...\n")
-
-        # 👈 ここで Claude が処理を行う
-        print("⏳ Claude がテキスト分析中...")
-        summary = await claude_summarizer.summarize_transcript(transcript)
-
-        if not summary:
-            raise Exception("サマリー生成に失敗しました")
-
-        print("\n✅ Claude によるサマリー完了")
-        print("-" * 60)
-        print(summary[:300] + "...\n")
-
-        print("📸 ステップ 5: スクリーンショットを抽出")
         segments = await transcript_service.get_transcript_segments(video_path)
-        if segments:
-            segments = await transcript_service.filter_important_segments(segments)
+        if not segments:
+            raise Exception("トランスクリプトの生成に失敗しました")
+        segments = await transcript_service.filter_important_segments(segments)
+        total_chars = sum(len(seg.get("text", "")) for seg in segments)
+        print(f"  ✅ トランスクリプト完了: {len(segments)}セグメント / {total_chars}文字")
 
-        screenshots = await video_processor.extract_key_frames(
-            video_path,
-            num_screenshots=settings.SCREENSHOT_COUNT
-        )
-        print(f"  ✅ {len(screenshots)}枚のスクリーンショット抽出完了")
+        print("\n📝 ステップ 4: トピックごとに要約を生成")
+        topics = summarize_by_topic(video_info, segments)
+        print(f"  ✅ {len(topics)}個のトピックを検出")
+        for t in topics:
+            print(f"     - [{int(t['start'])}s] {t['title']}")
 
-        # 詳細レポート（オプション）
-        detailed_report_text = None
-        if detailed_report:
-            print("\n📊 ステップ 6: Claude による詳細レポート生成")
-            detailed_report_text = await claude_summarizer.generate_detailed_report(
-                title=video_info.get("title", ""),
-                description=video_info.get("description", ""),
-                transcript=transcript,
-                duration=video_info.get("duration", 0),
-            )
-            print("  ✅ 詳細レポート完了")
+        print("\n📸 ステップ 5: トピックごとにスクリーンショットを抽出")
+        for topic in topics:
+            # チャプター開始直後（+2秒）のフレームを使用
+            capture_time = min(topic["start"] + 2, max(topic["end"] - 1, topic["start"]))
+            topic["image"] = await video_processor.extract_frame_at_time(video_path, capture_time)
+        extracted = sum(1 for t in topics if t.get("image"))
+        print(f"  ✅ {extracted}/{len(topics)}枚のスクリーンショット抽出完了")
 
-        print("\n📄 ステップ 7: HTML レポート生成")
+        print("\n📄 ステップ 6: HTML レポート生成")
         html_content = report_generator.generate_html_report(
             title=video_info.get("title", ""),
             description=video_info.get("description", ""),
             duration=video_info.get("duration", 0),
-            summary=summary,
-            screenshots=screenshots,
-            detailed_report=detailed_report_text,
+            summary="",
+            screenshots=[],
+            topics=topics,
         )
 
         # ファイル保存
@@ -185,11 +141,7 @@ async def main():
         print("=" * 60)
         print("✨ 処理完了！")
         print("=" * 60)
-        print(f"\n📄 レポート: {output_path}")
-        print(f"\n💡 このレポートは Claude が生成したサマリーを含んでいます")
-        print(f"   - API キー不要")
-        print(f"   - Claude Code セッション内で処理")
-        print(f"   - ローカルファイルとして保存\n")
+        print(f"\n📄 レポート: {output_path}\n")
 
     except KeyboardInterrupt:
         print("\n\n❌ キャンセルされました\n")

@@ -1,7 +1,7 @@
 import cv2
 import logging
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 import base64
 from io import BytesIO
 from PIL import Image
@@ -101,6 +101,39 @@ class VideoProcessor:
         except Exception as e:
             logger.error(f"Failed to extract key frames: {str(e)}")
             return []
+
+    async def extract_frame_at_time(self, video_path: str, seconds: float) -> Optional[str]:
+        """指定した時刻のフレームを1枚抽出（トピックごとのスクリーンショット用）"""
+        try:
+            cap = cv2.VideoCapture(video_path)
+            if not cap.isOpened():
+                logger.error(f"Failed to open video: {video_path}")
+                return None
+
+            fps = cap.get(cv2.CAP_PROP_FPS) or 30
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            frame_idx = min(int(seconds * fps), max(total_frames - 1, 0))
+
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+            ret, frame = cap.read()
+            cap.release()
+
+            if not ret:
+                logger.warning(f"Could not read frame at {seconds}s")
+                return None
+
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            img = Image.fromarray(frame_rgb)
+            img.thumbnail((640, 360))
+
+            buffer = BytesIO()
+            img.save(buffer, format="JPEG", quality=85)
+            img_base64 = base64.b64encode(buffer.getvalue()).decode()
+            return f"data:image/jpeg;base64,{img_base64}"
+
+        except Exception as e:
+            logger.error(f"Failed to extract frame at {seconds}s: {str(e)}")
+            return None
 
     async def get_video_duration(self, video_path: str) -> float:
         """ビデオの長さを取得（秒）"""

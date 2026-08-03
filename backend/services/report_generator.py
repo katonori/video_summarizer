@@ -14,6 +14,7 @@ class ReportGenerator:
         summary: str,
         screenshots: list,
         detailed_report: Optional[str] = None,
+        topics: Optional[List[dict]] = None,
     ) -> str:
         """HTMLレポートを生成（テキスト + スクリーンショット並行表示）"""
 
@@ -25,6 +26,15 @@ class ReportGenerator:
                 return f"{hours}時間 {minutes}分 {secs}秒"
             return f"{minutes}分 {secs}秒"
 
+        def format_time(seconds: float) -> str:
+            seconds = int(seconds or 0)
+            hours = seconds // 3600
+            minutes = (seconds % 3600) // 60
+            secs = seconds % 60
+            if hours > 0:
+                return f"{hours}:{minutes:02d}:{secs:02d}"
+            return f"{minutes}:{secs:02d}"
+
         def escape_html(text: str) -> str:
             """HTML特殊文字をエスケープ"""
             return (
@@ -35,23 +45,59 @@ class ReportGenerator:
                 .replace("'", "&#39;")
             )
 
-        # サマリーを段落ごとに分割
-        summary_blocks = [block.strip() for block in summary.split('\n\n') if block.strip()]
+        def truncate_description(text: str, max_chars: int = 300) -> str:
+            """動画説明欄が長すぎる場合に短縮（最初の段落を優先）"""
+            text = (text or "").strip()
+            if not text:
+                return ""
+            first_paragraph = text.split("\n\n")[0].strip()
+            candidate = first_paragraph if first_paragraph else text
+            if len(candidate) <= max_chars:
+                return candidate
+            return candidate[:max_chars].rstrip() + "…"
+
         summary_html = ""
 
-        for i, block in enumerate(summary_blocks):
-            screenshot = screenshots[i] if i < len(screenshots) else None
+        if topics:
+            # トピックごとのサマリー + スクリーンショット
+            for topic in topics:
+                topic_title = escape_html(topic.get("title", ""))
+                time_label = format_time(topic.get("start", 0))
+                topic_summary = escape_html(topic.get("summary", "")).replace(chr(10), "<br>")
+                img = topic.get("image")
+                image_html = (
+                    f'<div class="image-section"><img src="{img}" alt="{topic_title}" /></div>'
+                    if img else '<div class="image-section empty"></div>'
+                )
 
-            summary_html += f"""
-            <div class="content-block">
-                <div class="text-section">
-                    <div class="text-content">
-                        {escape_html(block).replace(chr(10), '<br>')}
+                summary_html += f"""
+                <div class="content-block">
+                    <div class="text-section">
+                        <h3 class="topic-title">{topic_title} <span class="time-badge">{time_label}</span></h3>
+                        <div class="text-content">
+                            {topic_summary}
+                        </div>
                     </div>
+                    {image_html}
                 </div>
-                {f'<div class="image-section"><img src="{screenshot}" alt="Screenshot {i+1}" /></div>' if screenshot else '<div class="image-section empty"></div>'}
-            </div>
-            """
+                """
+        else:
+            # 後方互換: サマリーを段落ごとに分割
+            summary_blocks = [block.strip() for block in summary.split('\n\n') if block.strip()]
+
+            for i, block in enumerate(summary_blocks):
+                screenshot = screenshots[i] if i < len(screenshots) else None
+
+                summary_html += f"""
+                <div class="content-block">
+                    <div class="text-section">
+                        <div class="text-content">
+                            {escape_html(block).replace(chr(10), '<br>')}
+                        </div>
+                    </div>
+                    {f'<div class="image-section"><img src="{screenshot}" alt="Screenshot {i+1}" /></div>' if screenshot else '<div class="image-section empty"></div>'}
+                </div>
+                """
 
         # 詳細レポート（オプション）
         detailed_html = ""
@@ -183,6 +229,26 @@ class ReportGenerator:
 
         .text-section {{
             flex: 1;
+        }}
+
+        .topic-title {{
+            font-size: 1.25em;
+            color: #444;
+            margin-bottom: 15px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }}
+
+        .time-badge {{
+            display: inline-block;
+            background: #e9e4fb;
+            color: #667eea;
+            padding: 3px 10px;
+            border-radius: 14px;
+            font-size: 0.7em;
+            font-weight: 600;
         }}
 
         .text-content {{
@@ -321,7 +387,7 @@ class ReportGenerator:
             <!-- 動画説明 -->
             <div class="section">
                 <h2>概要</h2>
-                {f'<div class="intro-section">{escape_html(description)}</div>' if description else ''}
+                {f'<div class="intro-section">{escape_html(truncate_description(description))}</div>' if description else ''}
             </div>
 
             <!-- サマリー -->
