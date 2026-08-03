@@ -15,15 +15,16 @@ class YouTubeService:
     async def download_video(self, url: str, video_id: str) -> Optional[str]:
         """YouTubeビデオをダウンロード"""
         try:
-            output_path = self.output_dir / f"{video_id}.mp4"
-
-            if output_path.exists():
-                logger.info(f"Video already exists: {output_path}")
-                return str(output_path)
+            # 既存ファイルを確認（mp4、mkv、webmなど）
+            existing_files = list(self.output_dir.glob(f"{video_id}.*"))
+            if existing_files:
+                video_file = existing_files[0]
+                logger.info(f"Video already exists: {video_file}")
+                return str(video_file)
 
             ydl_opts = {
                 "format": "best",
-                "outtmpl": str(self.output_dir / f"{video_id}"),
+                "outtmpl": str(self.output_dir / f"{video_id}.%(ext)s"),
                 "quiet": False,
                 "no_warnings": False,
                 "postprocessors": [{
@@ -40,7 +41,13 @@ class YouTubeService:
                 logger.info(f"Downloading: {url}")
                 ydl.download([url])
 
-            return str(output_path)
+            # ダウンロード後のファイルを検索
+            downloaded_files = list(self.output_dir.glob(f"{video_id}.*"))
+            if downloaded_files:
+                return str(downloaded_files[0])
+
+            logger.error("Downloaded file not found after yt-dlp completion")
+            return None
 
         except Exception as e:
             logger.error(f"Failed to download video: {str(e)}")
