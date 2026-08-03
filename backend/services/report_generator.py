@@ -59,11 +59,16 @@ class ReportGenerator:
         summary_html = ""
 
         if topics:
-            # トピックごとのサマリー + スクリーンショット
+            # トピックごとのサマリー（箇条書き） + スクリーンショット
             for topic in topics:
                 topic_title = escape_html(topic.get("title", ""))
                 time_label = format_time(topic.get("start", 0))
-                topic_summary = escape_html(topic.get("summary", "")).replace(chr(10), "<br>")
+                points = topic.get("points") or (
+                    [topic["summary"]] if topic.get("summary") else []
+                )
+                points_html = "".join(
+                    f"<li>{escape_html(point)}</li>" for point in points
+                )
                 img = topic.get("image")
                 image_html = (
                     f'<div class="image-section"><img src="{img}" alt="{topic_title}" /></div>'
@@ -75,7 +80,9 @@ class ReportGenerator:
                     <div class="text-section">
                         <h3 class="topic-title">{topic_title} <span class="time-badge">{time_label}</span></h3>
                         <div class="text-content">
-                            {topic_summary}
+                            <ul class="summary-points">
+                                {points_html}
+                            </ul>
                         </div>
                     </div>
                     {image_html}
@@ -263,6 +270,33 @@ class ReportGenerator:
 
         .text-content br {{
             margin: 8px 0;
+        }}
+
+        .summary-points {{
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }}
+
+        .summary-points li {{
+            position: relative;
+            padding-left: 22px;
+            margin-bottom: 12px;
+        }}
+
+        .summary-points li:last-child {{
+            margin-bottom: 0;
+        }}
+
+        .summary-points li::before {{
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0.65em;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #667eea;
         }}
 
         .image-section {{

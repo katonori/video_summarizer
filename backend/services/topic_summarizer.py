@@ -91,45 +91,62 @@ def build_topics(video_info: Dict, segments: Optional[List[Dict]]) -> List[Dict]
     return topics
 
 
-def extractive_summarize(text: str, max_sentences: int = 3) -> str:
-    """単語頻度スコアに基づく抽出型要約（外部API不要）"""
+def extract_key_points(text: str, max_points: int = 4, min_length: int = 6) -> List[str]:
+    """
+    単語頻度スコアに基づき、内容が重複しない要点をいくつか抽出する（外部API不要）
+
+    セリフをそのまま1つの文章として繋げるのではなく、要点ごとに独立した
+    箇条書き項目として返す。近い内容の文は重複とみなして除外する（簡易MMR）。
+    """
     text = (text or "").strip()
     if not text:
-        return ""
+        return []
 
     sentences = [s.strip() for s in SENTENCE_SPLIT_RE.split(text) if s.strip()]
+    sentences = [s for s in sentences if len(s) >= min_length]
     if not sentences:
-        return ""
+        return []
 
-    if len(sentences) <= max_sentences:
-        selected = sentences
-    else:
-        word_freq = Counter()
-        for sentence in sentences:
-            for word in WORD_RE.findall(sentence):
-                if word not in STOPWORDS:
-                    word_freq[word] += 1
+    word_freq = Counter()
+    sentence_words = []
+    for sentence in sentences:
+        words = {w for w in WORD_RE.findall(sentence) if w not in STOPWORDS}
+        sentence_words.append(words)
+        for w in words:
+            word_freq[w] += 1
 
-        def score(sentence: str) -> float:
-            words = [w for w in WORD_RE.findall(sentence) if w not in STOPWORDS]
-            if not words:
-                return 0.0
-            return sum(word_freq.get(w, 0) for w in words) / len(words)
+    def score(words: set) -> float:
+        if not words:
+            return 0.0
+        return sum(word_freq.get(w, 0) for w in words) / len(words)
 
-        ranked = sorted(range(len(sentences)), key=lambda i: score(sentences[i]), reverse=True)
-        top_indices = sorted(ranked[:max_sentences])
-        selected = [sentences[i] for i in top_indices]
+    ranked = sorted(range(len(sentences)), key=lambda i: score(sentence_words[i]), reverse=True)
 
-    joined = "。".join(s.rstrip("。") for s in selected)
-    return joined + "。"
+    selected_idx = []
+    covered_words = set()
+    for i in ranked:
+        words = sentence_words[i]
+        overlap = len(words & covered_words) / len(words) if words else 0
+        if overlap > 0.6 and selected_idx:
+            continue  # 既に選んだ要点と内容が被りすぎる場合はスキップ
+        selected_idx.append(i)
+        covered_words |= words
+        if len(selected_idx) >= max_points:
+            break
+
+    if not selected_idx:
+        selected_idx = ranked[:max_points]
+
+    selected_idx = sorted(selected_idx)
+    return [sentences[i].rstrip("。.!?！？") + "。" for i in selected_idx]
 
 
 def summarize_by_topic(
     video_info: Dict,
     segments: Optional[List[Dict]],
-    sentences_per_topic: int = 3,
+    points_per_topic: int = 4,
 ) -> List[Dict]:
-    """トピックごとに区間を切り出し、抽出型要約を付与したリストを返す"""
+    """トピックごとに区間を切り出し、箇条書きの要点を付与したリストを返す"""
     topics = build_topics(video_info, segments)
 
     result = []
@@ -141,13 +158,13 @@ def summarize_by_topic(
             if start <= seg.get("start", 0) < end and (seg.get("text") or "").strip()
         ]
         topic_text = "".join(seg_texts)
-        summary = extractive_summarize(topic_text, max_sentences=sentences_per_topic)
+        points = extract_key_points(topic_text, max_points=points_per_topic)
 
         result.append({
             "title": topic["title"],
             "start": start,
             "end": end,
-            "summary": summary or "（この区間のトランスクリプトを取得できませんでした）",
+            "points": points or ["（この区間のトランスクリプトを取得できませんでした）"],
         })
 
     logger.info(f"Generated {len(result)} topic summaries")
