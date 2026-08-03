@@ -2,6 +2,10 @@ fastapi==0.110.0
 uvicorn==0.27.0
 python-dotenv==1.0.0
 yt-dlp>=2024.1.0
+# CPU版 PyTorch（GPUなし環境向け）
+# GPU環境の場合は手動で cuda版に置き換えてください
+numpy>=1.24.0
+torch>=2.0.0; sys_platform == "linux"
 openai-whisper>=20240314
 opencv-python>=4.8.0
 anthropic>=0.21.0

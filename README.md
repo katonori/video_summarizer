@@ -27,10 +27,38 @@ cd video_summarizer
 
 ### 2. バックエンドのセットアップ
 
+**GPUがない環境（推奨方法）:**
+
+```bash
+cd /home/user/video_summarizer
+bash setup_cpu.sh
+```
+
+**手動セットアップ:**
+
 ```bash
 cd backend
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# CPU版 PyTorch をインストール
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# その他の依存パッケージをインストール
+pip install -r requirements.txt
+```
+
+**GPU環境の場合:**
+
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate
+
+# GPU版 PyTorch をインストール（CUDA 11.8対応）
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# その他の依存パッケージをインストール
 pip install -r requirements.txt
 ```
 
@@ -59,18 +87,26 @@ ANTHROPIC_API_KEY=your_actual_api_key
 
 ```bash
 cd /home/user/video_summarizer
-python summarize_in_claude.py "https://www.youtube.com/watch?v=..."
+python3 summarize_in_claude.py "https://www.youtube.com/watch?v=..."
+```
+
+**クッキーを使用する場合:**
+
+```bash
+python3 summarize_in_claude.py "https://www.youtube.com/watch?v=..." --cookies cookies.txt
+```
+
+**詳細レポート付き:**
+
+```bash
+python3 summarize_in_claude.py "https://www.youtube.com/watch?v=..." --cookies cookies.txt --detailed
 ```
 
 **特徴:**
 - API キー不要
 - Claude Code セッション内で直接処理
 - Claude が自動的にテキスト分析を行う
-
-```bash
-# 詳細レポート付き
-python summarize_in_claude.py "https://www.youtube.com/watch?v=..." --detailed
-```
+- GPU不要（CPU版で動作）
 
 ### 方法2: CLI コマンド
 
