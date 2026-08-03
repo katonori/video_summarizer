@@ -2,6 +2,8 @@ fastapi==0.110.0
 uvicorn==0.27.0
 python-dotenv==1.0.0
 certifi>=2024.0.0
+requests>=2.31.0
+tqdm>=4.66.0
 yt-dlp>=2024.1.0
 # CPU版 PyTorch（GPUなし環境向け）
 # GPU環境の場合は手動で cuda版に置き換えてください
