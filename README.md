@@ -83,38 +83,55 @@ ANTHROPIC_API_KEY=your_actual_api_key
 
 ## 使用方法
 
-### 方法1: Claude Code セッション内での実行（推奨）
+### 方法1: Claude Code に丸投げ（推奨・最も高品質）
+
+Claude Code CLI をこのプロジェクトのディレクトリで起動し、動画のURLを渡して
+「要約して」と頼むだけ。Claude が以下をすべて自動でやる:
+
+```
+/summarize https://www.youtube.com/watch?v=...
+```
+
+または普通に会話で「この動画を要約して: https://www.youtube.com/watch?v=...」
+と頼んでもよい。
+
+**特徴:**
+- API キー不要
+- ダウンロード・文字起こし・トピック分割・スクリーンショット抽出は自動実行
+- 要約は Claude 自身がトランスクリプトを読んで作成するため、単なる引用ではなく
+  内容を理解した高レベルな要約になる
+- ファイルのアップロード・ダウンロードなどの手作業は不要
+- ボット認証エラーが出た場合はクッキーファイルのパスを聞かれるので、用意して渡す
+
+裏側では `summarize_prepare.py`（ダウンロード〜下書きJSON生成）と
+`finalize_report.py`（要約が埋まった下書きJSONからHTML生成）の2フェーズを
+Claude が自動で実行し、その間の「要約を書く」部分だけを Claude 自身が担当する。
+
+### 方法2: 完全自動スクリプト（Claude Code のチャットを使わない場合）
+
+Claude との対話なしで1コマンドで完結させたい場合はこちら。ただし要約は
+キーワード頻度ベースの抽出型（元の発言からの抜粋の箇条書き）になり、
+方法1ほど内容を理解した要約にはならない。
 
 ```bash
 cd /home/user/video_summarizer
 python3 summarize_in_claude.py "https://www.youtube.com/watch?v=..."
-```
 
-**クッキーを使用する場合:**
-
-```bash
+# クッキーを使用する場合
 python3 summarize_in_claude.py "https://www.youtube.com/watch?v=..." --cookies cookies.txt
 ```
 
-**詳細レポート付き:**
-
-```bash
-python3 summarize_in_claude.py "https://www.youtube.com/watch?v=..." --cookies cookies.txt --detailed
-```
-
 **特徴:**
-- API キー不要
-- Claude Code セッション内で直接処理
-- Claude が自動的にテキスト分析を行う
+- API キー不要、Claude との対話も不要（完全にヘッドレスで実行可能）
 - GPU不要（CPU版で動作）
 
-### 方法2: CLI コマンド
+### 方法4: CLI コマンド
 
 ```bash
 bash summarize.sh "https://www.youtube.com/watch?v=..."
 ```
 
-### 方法3: Web UI（オプション）
+### 方法5: Web UI（オプション）
 
 ```bash
 # バックエンド起動
@@ -128,7 +145,7 @@ npm run dev
 
 ブラウザで `http://localhost:3000` を開く
 
-### 方法4: Python 直接実行
+### 方法6: Python 直接実行
 
 ```bash
 cd backend

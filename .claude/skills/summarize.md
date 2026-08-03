@@ -1,81 +1,84 @@
 ---
 name: summarize
-description: YouTubeビデオをAIでサマライズしてHTMLレポート生成
+description: YouTubeビデオをトピックごとに要約し、スクリーンショット付きHTMLレポートを生成
 ---
 
 # YouTube Video Summarizer
 
-YouTubeのビデオをAIで自動サマライズして、HTMLレポートを生成するスキル。
+YouTubeのビデオをトピック（チャプター）ごとに要約し、スクリーンショット付きの
+HTMLレポートを生成するスキル。**Anthropic APIキーは不要。** 要約は Claude（今の
+セッション自身）がトランスクリプトを読んで作成するため、外部APIを呼ばない。
 
-## 使用方法
+## このスキルが呼ばれたら、Claude が行うこと
+
+ユーザーから YouTube の URL（と、必要ならクッキーファイルのパス）を受け取ったら、
+以下をすべて **自分で（Bash/Read/Edit ツールを使って）実行し、完了させる。**
+ユーザーに手作業（ファイルのアップロードや中間ファイルの受け渡し）をさせない。
+
+### ステップ1: フェーズ1スクリプトを実行（ダウンロード・文字起こし・トピック分割）
 
 ```bash
 cd /home/user/video_summarizer
-bash summarize.sh "https://www.youtube.com/watch?v=VIDEO_ID"
+python3 summarize_prepare.py "<URL>" [--cookies <cookie_file>]
 ```
+
+これで `draft-<タイトル>.json` が生成される。ボット認証エラーが出た場合は、
+ユーザーにクッキーファイルのパスを尋ねて `--cookies` オプションを付けて再実行する。
+
+### ステップ2: 下書きJSONを読み、要点を自分で書き込む
+
+生成された `draft-*.json` を Read ツールで読む（サイズが大きい場合は `image`
+フィールドを除いて確認するか、`jq` や python で `topics[].transcript` だけを
+抽出して読む）。
+
+各トピックについて、**`transcript` フィールドの生の発言をそのまま引用するのでは
+なく**、内容を理解した上で3〜4個の高レベルな要点（日本語、簡潔な文）を考え、
+Edit ツールでそのトピックの `"points": null` を実際のリスト
+`"points": ["要点1", "要点2", "要点3"]` に書き換える。全トピック分を埋めるまで
+繰り返す。
+
+要点を書くときの基準:
+- 誰が何と言ったかの引用ではなく、「何が起きている／何が主張されているか」を
+  まとめ直す
+- 各トピック内で異なる観点をカバーする（同じ内容の言い換えを繰り返さない）
+- 数字・固有名詞・具体的な結論など、情報として意味のある部分は残す
+
+### ステップ3: フェーズ2スクリプトを実行してHTMLを生成
+
+全トピックの `points` を埋め終えたら:
+
+```bash
+python3 finalize_report.py "draft-<タイトル>.json"
+```
+
+`points` が埋まっていないトピックがあるとこのスクリプトはエラーで教えてくれるので、
+その場合はステップ2に戻って埋め切る。
+
+### ステップ4: 完了報告
+
+生成された `report-*.html` のパスをユーザーに伝える。可能であれば
+SendUserFile などで送付する。
 
 ## オプション
 
-- `--detailed`: 詳細レポートも生成
-- `-o filename.html`: 出力ファイル名を指定
-- `--screenshots N`: スクリーンショット数を指定
-
-## 例
-
-```bash
-# 基本的な実行
-bash summarize.sh "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-
-# 詳細レポート付き
-bash summarize.sh "https://www.youtube.com/watch?v=..." --detailed
-
-# カスタムファイル名
-bash summarize.sh "https://www.youtube.com/watch?v=..." -o my_report.html
-```
-
-## 出力
-
-実行完了後、HTMLレポートが生成されます：
-- `report-[ビデオタイトル].html`
-
-ブラウザで開いて、サマリーとスクリーンショットを確認できます。
-
-## 処理内容
-
-1. **ビデオダウンロード**: yt-dlpで高速ダウンロード
-2. **トランスクリプト生成**: Whisper（OpenAI）で音声を自動テキスト化
-3. **AIサマリー**: Claude 3.5 Sonnetで要点をまとめる
-4. **スクリーンショット**: 話題変化を検出して重要なシーンを自動抽出
-5. **HTMLレポート生成**: スタンドアロンの美しいHTMLレポート
-
-## セットアップ
-
-初回のみセットアップが必要です：
-
-```bash
-cd /home/user/video_summarizer
-cp .env.example .env
-# .env を編集してANTHROPIC_API_KEYを設定
-bash setup.sh
-```
+- `--cookies <file>`: YouTube のボット認証を回避するためのクッキーファイル
+  （`Sign in to confirm you're not a bot` エラーが出た場合に必要）
 
 ## トラブルシューティング
 
-### 「command not found」エラー
+### `ffmpeg` が見つからない
 
 ```bash
 cd /home/user/video_summarizer
-bash setup.sh
+bash setup_cpu.sh
 ```
 
-### 「ANTHROPIC_API_KEY not found」エラー
+### `Requested format is not available` / 認証エラー
 
-`.env` ファイルにAPIキーを設定してください：
-```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
-```
+YouTube 側のボット対策の可能性が高い。ユーザーにブラウザ拡張機能などで
+エクスポートした `cookies.txt` を用意してもらい、`--cookies` オプションで渡す。
 
-### ビデオダウンロード失敗
+### GPU がない環境
 
-YouTubeのURLが正しいか確認してください。
-短めの動画（5-10分）からテストするのをお勧めします。
+`backend/requirements.txt` は CPU 版 PyTorch を想定しているため、そのまま
+`setup_cpu.sh` でセットアップすれば動作する。
